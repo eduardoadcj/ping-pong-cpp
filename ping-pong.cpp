@@ -84,7 +84,7 @@ static void destroy_audio (audio_t *audio)
 static void play_audio (audio_t *audio)
 {
 	int success;
-	
+
 	success = SDL_QueueAudio(audio->deviceId, audio->wavBuffer, audio->wavLength);
 	SDL_PauseAudioDevice(audio->deviceId, 0);
 }
@@ -100,7 +100,7 @@ static void render ()
 
 	for (i=0; i<nobjs; i++) {
 		o = objs[i];
-		
+
 		rect.x = o->pos.x;
 		rect.y = o->pos.y;
 		rect.w = o->w;
@@ -125,7 +125,7 @@ static void check_collision_boundaries (obj_t *o)
 		o->speed.x *= -1.0;
 		play_audio(&audio_pong);
 	}
-	
+
 	if (o->pos.y < 0.0) {
 		o->pos.y = 0.0;
 		o->speed.y *= -1.0;
@@ -141,7 +141,7 @@ static void check_collision_boundaries (obj_t *o)
 static void obj_lose_kinect_energy (obj_t *o, double t)
 {
 	double to_keep = 1.0 - BALL_ENERGY_DROP*t;
-	
+
 	if (to_keep < 0.0)
 		to_keep = 0.0;
 
@@ -158,14 +158,14 @@ static int check_objs_collision (obj_t *o1, obj_t *o2)
 static void ball_strike (obj_t *racket, obj_t *ball)
 {
 	double vx;
-	
+
 	cout << "bateu na bolinha" << endl;
-	
+
 	vx = (racket->pos.x + racket->w/2.0) - (ball->pos.x + ball->w/2.0);
-	
+
 	ball->speed.x -= vx;
 	ball->speed.y *= -1.0;
-		
+
 	if (ball->speed.y > 0.0) {
 		ball->pos.y = RACKET_H+5.0;
 		ball->speed.y += FIRST_STRIKE_SPEED_Y;
@@ -180,13 +180,13 @@ static void check_collisions ()
 {
 	int i, j;
 	obj_t *o1, *o2;
-	
+
 	for (i=0; i<nobjs-1; i++) {
 		o1 = objs[i];
-		
+
 		for (j=i+1; j<nobjs; j++) {
 			o2 = objs[j];
-			
+
 			if (check_objs_collision(o1, o2)) {
 				if (o1->type == OBJ_BALL && o2->type == OBJ_RACKET)
 					ball_strike(o2, o1);
@@ -211,17 +211,17 @@ static void physics (double t)
 {
 	int i;
 	obj_t *o;
-	
+
 	for (i=0; i<nobjs; i++) {
 		o = objs[i];
-		
+
 		o->pos.x += o->speed.x * t;
 		o->pos.y += o->speed.y * t;
-		
+
 		obj_lose_kinect_energy(o, t);
 		check_collision_boundaries(o);
 	}
-	
+
 	check_collisions();
 	limit_ball_speed();
 }
@@ -234,7 +234,7 @@ static void run_forrest (double t)
 static void add_obj (obj_t *o)
 {
 	assert(nobjs < MAX_OBJS);
-	
+
 	objs[ nobjs++ ] = o;
 }
 
@@ -251,9 +251,9 @@ static void init_game ()
 	ball->g = 0;
 	ball->b = 0;
 	ball->type = OBJ_BALL;
-	
+
 	add_obj(ball);
-	
+
 	player = new obj_t();
 	player->pos.x = SCREEN_W / 2;
 	player->pos.y = SCREEN_H - RACKET_H;
@@ -265,9 +265,9 @@ static void init_game ()
 	player->g = 255;
 	player->b = 0;
 	player->type = OBJ_RACKET;
-	
+
 	add_obj(player);
-	
+
 	forrest = new obj_t();
 	forrest->pos.x = SCREEN_W / 2;
 	forrest->pos.y = 0;
@@ -279,12 +279,51 @@ static void init_game ()
 	forrest->g = 255;
 	forrest->b = 0;
 	forrest->type = OBJ_RACKET;
-	
+
 	add_obj(forrest);
+}
+
+int show_menu()
+{
+
+	int alive = 1;
+	SDL_Event event;
+	SDL_Surface *iniciar = SDL_LoadBMP("img/iniciar.bmp");
+	SDL_Texture *tex_iniciar = SDL_CreateTextureFromSurface(renderer, iniciar);
+	SDL_Rect rect_iniciar;
+	rect_iniciar.h = 200;
+	rect_iniciar.w = 450;
+	rect_iniciar.x = SCREEN_W/2 - rect_iniciar.w/2;
+	rect_iniciar.y = SCREEN_H/2 - rect_iniciar.h/2;
+
+	SDL_RenderCopy(renderer, tex_iniciar, NULL, &rect_iniciar);
+	SDL_RenderPresent(renderer);
+
+	while(alive){
+		while(SDL_PollEvent(&event)){
+			switch(event.type){
+				case SDL_MOUSEBUTTONDOWN:
+					if(event.motion.x >= rect_iniciar.x && event.motion.x <= rect_iniciar.x + rect_iniciar.w){
+						if(event.motion.y >= rect_iniciar.y && event.motion.y <= rect_iniciar.y + rect_iniciar.h)
+							return 1;
+					}
+					break;
+				case SDL_QUIT:
+					alive = 0;
+					return 0;
+					break;
+			}
+		}
+	}
+
+	SDL_DestroyTexture(tex_iniciar);
+	SDL_FreeSurface(iniciar);
+
 }
 
 int main (int argc, char **argv)
 {
+
 	SDL_Event event;
 	const Uint8 *keyboard_state_array;
 	chrono::high_resolution_clock::time_point tbegin, tend;
@@ -301,24 +340,30 @@ int main (int argc, char **argv)
 		SDL_WINDOW_OPENGL);
 
 	renderer = SDL_CreateRenderer(screen, -1, 0);
-	
+
 	load_audio(&audio_pong, "pong.wav");
-	
+
+	if(show_menu() != 1){
+		destroy_audio(&audio_pong);
+		SDL_Quit();
+		return 0;
+	}
+
 	init_game();
 
 	SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
 	SDL_RenderClear(renderer);
 	SDL_RenderPresent(renderer);
-	
+
 	keyboard_state_array = SDL_GetKeyboardState(NULL);
-	
+
 	elapsed = 0.0;
-		
+
 	while (alive) {
 		tbegin = chrono::high_resolution_clock::now();
-		
+
 		#define inc 200.0
-		
+
 /*		if (keyboard_state_array[SDL_SCANCODE_UP])
 			player->speed.y -= inc;
 		if (keyboard_state_array[SDL_SCANCODE_DOWN])
@@ -328,7 +373,7 @@ int main (int argc, char **argv)
 			player->pos.x -= inc*elapsed;
 		if (keyboard_state_array[SDL_SCANCODE_RIGHT])
 			player->pos.x += inc*elapsed;
-			
+
 		while (SDL_PollEvent(&event)) {
 			switch (event.type) {
 				case SDL_QUIT:
@@ -347,24 +392,24 @@ int main (int argc, char **argv)
 					}
 					break;
 				}
-				
+
 			}
 		}
-		
+
 		run_forrest(elapsed);
-		
+
 		do {
 			tend = chrono::high_resolution_clock::now();
 			chrono::duration<double> elapsed_ = chrono::duration_cast<chrono::duration<double>>(tend - tbegin);
 			elapsed = elapsed_.count();
 		} while (elapsed < 0.01);
-		
+
 		physics(elapsed);
 		render();
 	}
 
 	destroy_audio(&audio_pong);
 	SDL_Quit();
-	
+
 	return 0;
 }
